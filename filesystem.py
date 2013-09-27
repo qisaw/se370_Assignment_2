@@ -5,30 +5,30 @@ This is where you do your work.
 Not only do you need to fill in the methods but you can also add any other classes, 
 methods or functions to this file to make your system pass all of the tests.
 
-@author: YOUR UPI
+@author: wkas533
 '''
 
 from drive import Drive
+import math
 
 class A2File(object):
     '''
     One of these gets returned from Volume open.
     '''
     
-    def __init__(self, params):
+    def __init__(self, fileName):
+        self.name = fileName
+        self.fileSize = 0
         '''
         Initializes an A2File object.
         Not called from the test file but you should call this from the
         Volume.open method.
         You can use as many parameters as you need.
         '''
-        pass
+
     
     def size(self):
-        '''
-        Returns the size of the file in bytes.
-        '''
-        pass
+        return self.fileSize
     
     def write(self, location, data):
         '''
@@ -59,9 +59,30 @@ class Volume(object):
         First block of root directory (called root_index) : as a string terminated with "\n" - always the last
             block on the drive.
     '''
+    
+
+    def __init__(self,drive,name):
+        self.drive = drive
+        self.driveName = name
+        self.rootDir = drive.num_blocks()-1
+        #initially all the drives are free
+        self.usedDrives=[[False]]*drive.num_blocks()
+        #number of data blocks used by the header
+        self.numOfDataBlocks = self.calculate_volume_data_blocks()
+        #each of the datablocks are marked as used
+        for i in range(self.numOfDataBlocks):
+            self.usedDrives[i]=True
+        #root directory is also  used
+        self.usedDrives[self.rootDir]=True
 
     @staticmethod
     def format(drive, name):
+        if (len(name)<1) or (len(name)>(drive.num_blocks()-1)*Drive.BLK_SIZE):
+            raise ValueError
+        elif ("/" in name.decode()) or ("\n" in name.decode()):
+            raise ValueError
+        volume = Volume(drive,name)
+        
         '''
         Creates a new volume in a disk.
         Puts the initial metadata on the disk.
@@ -71,42 +92,78 @@ class Volume(object):
         one block for a file.
         Returns the volume.
         '''
-        pass
+        return volume
     
     def name(self):
         '''
         Returns the volumes name.
         '''
-        pass
+        return self.driveName
     
     def volume_data_blocks(self):
         '''
         Returns the number of blocks at the beginning of the drive which are used to hold
         the volume information.
         '''
-        pass
-        
+        '''
+        to get the number of blocks used by the header we must:
+        check the length of the information then
+        divide by the Drive.blk_size
+        and get the value given there
+        round it up to the nearest whole number
+        '''
+        return self.numOfDataBlocks
+    
+    def calculate_volume_data_blocks(self):
+        #length of the title
+        titleLength = len(self.name()) +1 #for the '/n'
+        #length of bitmao is drive.numblocks +1
+        bitmapLength = self.drive.num_blocks()+1
+        #length of size
+        sizeLength = len(str(self.drive.num_blocks()))+1
+        #length of the root directory
+        lenRoot = len(str(self.rootDir))+1
+        #length of the volume data blocks, usually two but could be three
+        ''' how am i going to get the size of the volume_data_blocks without actually calculating volume data blocks?
+        esitmate how much it is and then add this to the volume data blocks, then check again.
+        '''
+        estimatedLength = (titleLength+bitmapLength+sizeLength + lenRoot)/Drive.BLK_SIZE
+        estimatedLength = int(math.ceil(estimatedLength))
+        lengthOfestimate = len(str(estimatedLength))+1
+        finalLength = (titleLength+bitmapLength+sizeLength + lenRoot + lengthOfestimate)/Drive.BLK_SIZE
+        return int(math.ceil(finalLength))
+    
     def size(self):
         '''
         Returns the number of blocks in the underlying drive.
         '''
-        pass
+        return self.drive.num_blocks()
     
     def bitmap(self):
         '''
         Returns the volume block bitmap.
         '''
-        pass
+        bitmap = b''
+        for i in range(len(self.usedDrives)):
+            if self.usedDrives[i]==True:
+                bitmap+=b'x'
+            else:
+                bitmap+=b'-'
+        return bitmap
     
     def root_index(self):
         '''
         Returns the block number of the first block of the root directory.
         Always the last block on the drive.
         '''
-        pass
+        return self.rootDir
     
     @staticmethod
     def mount(drive_name):
+        drive = Drive.reconnect(drive_name)
+        print(drive.name)
+        return Volume.format(drive, drive.name)
+        
         '''
         Reconnects a drive as a volume.
         Any data on the drive is preserved.
@@ -115,10 +172,7 @@ class Volume(object):
         pass
     
     def unmount(self):
-        '''
-        Unmounts the volume and disconnects the drive.
-        '''
-        pass
+        self.drive.disconnect()
     
     def open(self, filename):
         '''
@@ -126,4 +180,5 @@ class Volume(object):
         If the file does not exist it is created.
         Returns an A2File object.
         '''
+        file = A2File(filename)
         pass
