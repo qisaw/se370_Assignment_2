@@ -161,8 +161,6 @@ class Volume(object):
     @staticmethod
     def mount(drive_name):
         drive = Drive.reconnect(drive_name)
-        print(drive.name)
-        return Volume.format(drive, drive.name)
         
         '''
         Reconnects a drive as a volume.
@@ -172,13 +170,29 @@ class Volume(object):
         pass
     
     def unmount(self):
+        #add the name and bitmap etc
+        #self.drive.write_block(0,data)
+        self.writeVolumeDataBlock()
         self.drive.disconnect()
     
+    def writeVolumeDataBlock(self):
+        dataVolumeSize = str(self.numOfDataBlocks).encode()+b'\n'+self.driveName+b'\n'+str(self.size()).encode()+b'\n'+self.bitmap()+b'\n'+str(self.rootDir).encode()+b'\n'
+        '''make it divisible by Drive.blksize and then split the array'''
+        numberOfSpaces = Drive.BLK_SIZE-len(dataVolumeSize)%Drive.BLK_SIZE
+            
+        dataVolumeSize+=(b' '*numberOfSpaces)
+        i=0;
+        while i < len(dataVolumeSize)/Drive.BLK_SIZE:
+            #slice the array 
+            print(len(dataVolumeSize[i*Drive.BLK_SIZE:i*Drive.BLK_SIZE+Drive.BLK_SIZE]))
+            self.drive.write_block(i,dataVolumeSize[i*Drive.BLK_SIZE:i*Drive.BLK_SIZE+Drive.BLK_SIZE])
+            i= i +1
+
+        
     def open(self, filename):
         '''
         Opens a file for read and write operations.
         If the file does not exist it is created.
         Returns an A2File object.
         '''
-        file = A2File(filename)
         pass
